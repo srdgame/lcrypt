@@ -1,0 +1,8 @@
+*.bak
+*.o
+*.so
+*.swp
+*~
+*.un~
+tags
+build
