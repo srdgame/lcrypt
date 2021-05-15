@@ -4,6 +4,8 @@ local hmac_sm3 = CRYPT.hmac_sm3
 local sm2keygen = CRYPT.sm2keygen
 local sm2sign = CRYPT.sm2sign
 local sm2verify = CRYPT.sm2verify
+local sm2encrypt = CRYPT.sm2encrypt
+local sm2decrypt = CRYPT.sm2decrypt
 local hexencode = CRYPT.hexencode
 local base64encode = CRYPT.base64encode
 local base64decode = CRYPT.base64decode
@@ -60,6 +62,16 @@ function SM.sm2verify(pub_path, text, sign, b64)
     sign = base64decode(sign)
   end
   return sm2verify(pub_path, text, sign)
+end
+
+-- SM2加密
+function SM.sm2encrypt(pub_path, text)
+  return sm2encrypt(pub_path, text, sign)
+end
+
+-- SM2解密
+function SM.sm2decrypt(pub_path, text)
+  return sm2decrypt(pub_path, text, sign)
 end
 
 -- SM4分组加密算法之CBC
