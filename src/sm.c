@@ -366,4 +366,76 @@ int lsm2verify(lua_State *L){
   return 1;
 }
 
+int lsm2encrypt(lua_State *L){
+  size_t tsize = 0;
+  const char* text = luaL_checklstring(L, 2, &tsize);
+
+  EVP_PKEY *sm2key = load_sm2pubkey(L);
+  EVP_PKEY_set_alias_type(sm2key, EVP_PKEY_SM2);
+
+  EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(sm2key, NULL);
+
+  if (1 != EVP_PKEY_encrypt_init(pctx)) {
+	EVP_PKEY_free(sm2key);
+	EVP_PKEY_CTX_free(pctx);
+    return luaL_error(L, "EVP_PKEY_encrypt_init failed.");
+  }
+
+  size_t out_size = 0;
+  if (1 != EVP_PKEY_encrypt(pctx, NULL, &out_size, (const unsigned char*)text, tsize)) {
+	EVP_PKEY_free(sm2key);
+	EVP_PKEY_CTX_free(pctx);
+    return luaL_error(L, "EVP_PKEY_encrypt failed.");
+  }
+
+  uint8_t *out = lua_newuserdata(L, out_size);
+
+  if (1 != EVP_PKEY_encrypt(pctx, out, &out_size, (const unsigned char*)text, tsize)) {
+	EVP_PKEY_free(sm2key);
+	EVP_PKEY_CTX_free(pctx);
+    return luaL_error(L, "EVP_PKEY_encrypt failed.");
+  }
+
+  lua_pushlstring(L, (const char*)out, out_size);
+  EVP_PKEY_free(sm2key);
+  EVP_PKEY_CTX_free(pctx);
+  return 1;
+}
+
+int lsm2decrypt(lua_State *L){
+  size_t tsize = 0;
+  const char* text = luaL_checklstring(L, 2, &tsize);
+
+  EVP_PKEY *sm2key = load_sm2pubkey(L);
+  EVP_PKEY_set_alias_type(sm2key, EVP_PKEY_SM2);
+
+  EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(sm2key, NULL);
+
+  if (1 != EVP_PKEY_decrypt_init(pctx)) {
+	EVP_PKEY_free(sm2key);
+	EVP_PKEY_CTX_free(pctx);
+    return luaL_error(L, "EVP_PKEY_decrypt_init failed.");
+  }
+
+  size_t out_size = 0;
+  if (1 != EVP_PKEY_decrypt(pctx, NULL, &out_size, (const unsigned char*)text, tsize)) {
+	EVP_PKEY_free(sm2key);
+	EVP_PKEY_CTX_free(pctx);
+    return luaL_error(L, "EVP_PKEY_decrypt failed.");
+  }
+
+  uint8_t *out = lua_newuserdata(L, out_size);
+
+  if (1 != EVP_PKEY_decrypt(pctx, out, &out_size, (const unsigned char*)text, tsize)) {
+	EVP_PKEY_free(sm2key);
+	EVP_PKEY_CTX_free(pctx);
+    return luaL_error(L, "EVP_PKEY_decrypt failed.");
+  }
+
+  lua_pushlstring(L, (const char*)out, out_size);
+  EVP_PKEY_free(sm2key);
+  EVP_PKEY_CTX_free(pctx);
+  return 1;
+}
+
 #endif

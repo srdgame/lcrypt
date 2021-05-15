@@ -89,6 +89,8 @@ int lsm2keygen(lua_State *L);
 
 int lsm2sign(lua_State *L);
 int lsm2verify(lua_State *L);
+int lsm2encrypt(lua_State *L);
+int lsm2decrypt(lua_State *L);
 
 int lsm4_cbc_encrypt(lua_State *L);
 int lsm4_cbc_decrypt(lua_State *L);
