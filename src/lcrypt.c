@@ -135,6 +135,7 @@ LUAMOD_API int luaopen_lcrypt(lua_State *L) {
     { "sm3", lsm3 },
     { "hmac_sm3", lhmac_sm3 },
     { "sm2keygen", lsm2keygen },
+    { "sm2key_export", lsm2key_export },
     { "sm2sign", lsm2sign },
     { "sm2verify", lsm2verify },
     { "sm2encrypt", lsm2encrypt },

@@ -2,6 +2,7 @@ local CRYPT = require "lcrypt"
 local sm3 = CRYPT.sm3
 local hmac_sm3 = CRYPT.hmac_sm3
 local sm2keygen = CRYPT.sm2keygen
+local sm2key_export = CRYPT.sm2key_export
 local sm2sign = CRYPT.sm2sign
 local sm2verify = CRYPT.sm2verify
 local sm2encrypt = CRYPT.sm2encrypt
@@ -45,6 +46,10 @@ end
 -- 生成SM2私钥、公钥
 function SM.sm2keygen(pri_path, pub_path)
   return sm2keygen(pri_path, pub_path)
+end
+
+function SM.sm2key_export(pub_key, pri_key, pri_path, pub_path)
+	return sm2key_export(pub_key, pri_key, pri_path, pub_path)
 end
 
 -- SM3WithSM2签名

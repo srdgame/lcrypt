@@ -86,6 +86,7 @@ int lsm3(lua_State *L);
 int lhmac_sm3(lua_State *L);
 
 int lsm2keygen(lua_State *L);
+int lsm2key_export(lua_State *L);
 
 int lsm2sign(lua_State *L);
 int lsm2verify(lua_State *L);
