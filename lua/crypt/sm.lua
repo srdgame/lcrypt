@@ -53,8 +53,8 @@ function SM.sm2key_export(pub_key, pri_key, pri_path, pub_path)
 end
 
 -- SM3WithSM2签名
-function SM.sm2sign(pri_path, text, b64)
-  local sign = sm2sign(pri_path, text)
+function SM.sm2sign(pri_path, id, text, b64)
+  local sign = sm2sign(pri_path, id, text)
   if b64 then
     sign = base64encode(sign)
   end
@@ -62,11 +62,11 @@ function SM.sm2sign(pri_path, text, b64)
 end
 
 -- SM3WithSM2验签
-function SM.sm2verify(pub_path, text, sign, b64)
+function SM.sm2verify(pub_path, id, text, sign, b64)
   if b64 then
     sign = base64decode(sign)
   end
-  return sm2verify(pub_path, text, sign)
+  return sm2verify(pub_path, id, text, sign)
 end
 
 -- SM2加密

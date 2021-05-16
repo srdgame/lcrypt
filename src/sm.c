@@ -318,42 +318,68 @@ int lsm2keygen(lua_State *L){
 }
 
 int lsm2sign(lua_State *L){
-  size_t tsize = 0;
-  const char* text = luaL_checklstring(L, 2, &tsize);
+	size_t idsize = 0;
+	const char* id = luaL_checklstring(L, 2, &idsize);
 
-  EVP_PKEY *sm2key = load_sm2prikey(L);
-  EVP_PKEY_set_alias_type(sm2key, EVP_PKEY_SM2);
+	size_t tsize = 0;
+	const char* text = luaL_checklstring(L, 3, &tsize);
 
-  size_t osize = EVP_PKEY_size(sm2key);
-  const char *out = lua_newuserdata(L, osize);
+	EVP_PKEY *sm2key = load_sm2prikey(L);
+	EVP_PKEY_set_alias_type(sm2key, EVP_PKEY_SM2);
 
-  EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
-  EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(sm2key, NULL);
-  EVP_MD_CTX_set_pkey_ctx(md_ctx, pctx);
-  EVP_DigestSignInit(md_ctx, NULL, EVP_sm3(), NULL, sm2key);
+	EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
+	EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(sm2key, NULL);
+	EVP_PKEY_CTX_set1_id(pctx, id, idsize);
+	EVP_MD_CTX_set_pkey_ctx(md_ctx, pctx);
+	EVP_DigestSignInit(md_ctx, NULL, EVP_sm3(), NULL, sm2key);
 
-  EVP_DigestSign(md_ctx, (uint8_t*)out, &osize, (uint8_t*)text, tsize);
+	size_t osize = 0;
+	if (1 != EVP_DigestSign(md_ctx, NULL, &osize, (uint8_t*)text, tsize)) {
+		EVP_PKEY_free(sm2key);
+		EVP_PKEY_CTX_free(pctx);
+		EVP_MD_CTX_free(md_ctx);
+		return luaL_error(L, "EVP_DigestSign failed.");
+	}
 
-  lua_pushlstring(L, out, osize);
+	const char *out = lua_newuserdata(L, osize);
+	if (!out) {
+		EVP_PKEY_free(sm2key);
+		EVP_PKEY_CTX_free(pctx);
+		EVP_MD_CTX_free(md_ctx);
+		return luaL_error(L, "Allocated out buffer failed.");
+	}
 
-  EVP_PKEY_free(sm2key);
-  EVP_PKEY_CTX_free(pctx);
-  EVP_MD_CTX_free(md_ctx);
-  return 1;
+	if (1 != EVP_DigestSign(md_ctx, (uint8_t*)out, &osize, (uint8_t*)text, tsize) ){
+		EVP_PKEY_free(sm2key);
+		EVP_PKEY_CTX_free(pctx);
+		EVP_MD_CTX_free(md_ctx);
+		return luaL_error(L, "EVP_DigestSign failed.");
+	}
+
+	lua_pushlstring(L, out, osize);
+
+	EVP_PKEY_free(sm2key);
+	EVP_PKEY_CTX_free(pctx);
+	EVP_MD_CTX_free(md_ctx);
+	return 1;
 }
 
 int lsm2verify(lua_State *L){
+  size_t idsize = 0;
+  const char* id = luaL_checklstring(L, 2, &idsize);
+
   size_t tsize = 0;
-  const char* text = luaL_checklstring(L, 2, &tsize);
+  const char* text = luaL_checklstring(L, 3, &tsize);
 
   size_t csize = 0;
-  const char* cipher = luaL_checklstring(L, 3, &csize);
+  const char* cipher = luaL_checklstring(L, 4, &csize);
 
   EVP_PKEY *sm2key = load_sm2pubkey(L);
   EVP_PKEY_set_alias_type(sm2key, EVP_PKEY_SM2);
 
   EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
   EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(sm2key, NULL);
+  EVP_PKEY_CTX_set1_id(pctx, id, idsize);
   EVP_MD_CTX_set_pkey_ctx(md_ctx, pctx);
   EVP_DigestVerifyInit(md_ctx, NULL, EVP_sm3(), NULL, sm2key);
 
@@ -441,14 +467,14 @@ int lsm2decrypt(lua_State *L){
 }
 
 // 读取公钥
-static inline EVP_PKEY* hex_to_sm2pubkey(const char* pub_key, const char* pri_key) {
+static inline EVP_PKEY* hex_to_sm2pubkey(lua_State *L, const char* pub_key, const char* pri_key) {
 	EVP_PKEY *sm2key = NULL;
 	EC_KEY *ec_key = NULL;
 	EC_GROUP *ec_group = NULL;
 	BIGNUM *kp = NULL;
 	BIGNUM *kx = NULL;
 	BIGNUM *ky = NULL;
-	BIO *outbio = NULL;
+	//BIO *outbio = NULL;
 	char keyx[64];
 	char keyy[64];
 	const char* err = NULL;
@@ -467,17 +493,17 @@ static inline EVP_PKEY* hex_to_sm2pubkey(const char* pub_key, const char* pri_ke
 
 	if (NULL == (ec_group = EC_GROUP_new_by_curve_name(NID_sm2)))
 	{
-		printf("EC_GROUP_new_by_curve_name failed\n");
+		err = "EC_GROUP_new_by_curve_name failed";
 		goto clean_up;
 	} 
 
 	if (NULL == (ec_key = EC_KEY_new())) {
-		printf("EC_KEY_new failed\n");
+		err = "EC_KEY_new failed";
 		goto clean_up;
 	}
 
 	if ( (EC_KEY_set_group(ec_key, ec_group) != 1 )){
-		printf("EC_KEY_set_group failed\n");
+		err = "EC_KEY_set_group failed";
 		goto clean_up;
 	}
 
@@ -487,25 +513,25 @@ static inline EVP_PKEY* hex_to_sm2pubkey(const char* pub_key, const char* pri_ke
 			if (BN_hex2bn(&kx, keyx) &&
 					BN_hex2bn(&ky, keyy)) {
 				if ( !EC_POINT_set_affine_coordinates(ec_group, pt, kx, ky, NULL)) {
-					printf("EC_POINT_set_affine_coordinates failed\n");
+					err = "EC_POINT_set_affine_coordinates failed";
 					goto clean_up;
 				}
 				if ( !EC_KEY_set_public_key(ec_key, pt)) {
-					printf("EC_KEY_set_public_key failed\n");
+					err ="EC_KEY_set_public_key failed";
 					goto clean_up;
 				}
 				if ( !EC_KEY_set_private_key(ec_key, kp)) {
-					printf("EC_KEY_set_private_key failed\n");
+					err = "EC_KEY_set_private_key failed";
 					goto clean_up;
 				}
 
 				if (NULL == (sm2key = EVP_PKEY_new())) {
-					printf("EVP_PKEY_new failed\n");
+					err = "EVP_PKEY_new failed";
 					goto clean_up;
 				}
 
 				if ( !EVP_PKEY_assign_EC_KEY(sm2key, ec_key)) {
-					printf("EVP_PKEY_assign_EC_KEY failed\n");
+					err = "EVP_PKEY_assign_EC_KEY failed";
 					EVP_PKEY_free(sm2key);
 					sm2key = NULL;
 					goto clean_up;
@@ -522,23 +548,19 @@ static inline EVP_PKEY* hex_to_sm2pubkey(const char* pub_key, const char* pri_ke
 					BIO_printf(outbio, "Error writing public key data in PEM format\n");
 				*/	
 			} else {
-				printf("keyx keyy to bn failed\n");
+				err = "keyx keyy to bn failed";
 				goto clean_up;
 			}
 		} else {
-			printf("EC_POINT_new failed\n");
+			err = "EC_POINT_new failed";
 			goto clean_up;
 		}
 	} else {
-		printf("pkey to bn failed\n");
+		err = "pkey to bn failed";
 		goto clean_up;
 	}
 
 clean_up:
-	if (private_fp)
-		fclose(public_fp);
-	if (public_fp)
-		fclose(private_fp);
 	if (kp)
 		BN_free(kp);
 	if (kx)
@@ -553,15 +575,19 @@ clean_up:
 	if (sm2key)
 		EVP_PKEY_free(sm2key);
 	*/
-	return NULL;
+	if (!sm2key) {
+		return luaL_error(L, err), NULL;
+	}
+	return sm2key;
 }
 
 int lsm2key_export(lua_State *L) {
+	const char* err = NULL;
 	const char* pub_key = luaL_checkstring(L, 1);
 	const char* pri_key = luaL_checkstring(L, 2);
 	const char* private_keyname = luaL_checkstring(L, 3);
 	const char* public_keyname = luaL_checkstring(L, 4);
-	EVP_PKEY *sm2key = hex_to_sm2pubkey(pub_key, pri_key);
+	EVP_PKEY *sm2key = hex_to_sm2pubkey(L, pub_key, pri_key);
 	if (!sm2key) {
 		return luaL_error(L, "Write file failed after generate SM2 key.");
 	}
@@ -569,20 +595,34 @@ int lsm2key_export(lua_State *L) {
 	FILE *private_fp = fopen(private_keyname, "wb");
 	FILE *public_fp = fopen(public_keyname, "wb");
 	if (!private_fp || !public_fp) {
-		return luaL_error(L, "Write file failed after generate SM2 key.");
+		err = "Write file failed after generate SM2 key.";
+		goto clean_up;
+		//return luaL_error(L, "Write file failed after generate SM2 key.");
 	}
 
-	if(!PEM_write_PrivateKey(private_fp, sm2key, NULL, NULL, 0, 0, NULL))
-		return luaL_error(L, "Error writing private key data in PEM format");
+	if(!PEM_write_PrivateKey(private_fp, sm2key, NULL, NULL, 0, 0, NULL)) {
+		err = "Error writing private key data in PEM format";
+		goto clean_up;
+		//return luaL_error(L, "Error writing private key data in PEM format");
+	}
 
-	if(!PEM_write_PUBKEY(public_fp, sm2key))
-		BIO_printf(outbio, "Error writing public key data in PEM format\n");
+	if(!PEM_write_PUBKEY(public_fp, sm2key)) {
+		err = "Error writing public key data in PEM format";
+		goto clean_up;
+		//return luaL_error(L, "Error writing public key data in PEM format\n");
+	}
+
+clean_up:
 	if (private_fp)
 		fclose(public_fp);
 	if (public_fp)
 		fclose(private_fp);
 	if (sm2key)
 		EVP_PKEY_free(sm2key);
+
+	if (err) {
+		return luaL_error(L, err);
+	}
 
 	return 0;
 }
