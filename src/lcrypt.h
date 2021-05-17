@@ -5,6 +5,7 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+#include <openssl/ssl.h>
 #include <openssl/md5.h>
 #include <openssl/sha.h>
 #include <openssl/pem.h>
@@ -86,7 +87,10 @@ int lsm3(lua_State *L);
 int lhmac_sm3(lua_State *L);
 
 int lsm2keygen(lua_State *L);
-int lsm2key_export(lua_State *L);
+int lsm2key_write(lua_State *L);
+//int lsm2key_export(lua_State *L);
+//int lsm2pubkey_write(lua_State *L);
+//int lsm2prikey_write(lua_State *L);
 
 int lsm2sign(lua_State *L);
 int lsm2verify(lua_State *L);

@@ -289,9 +289,9 @@ static inline int sm2keygen(lua_State *L) {
   FILE *public_fp = fopen(public_keyname, "wb");
   if (!private_fp || !public_fp) {
     if (private_fp)
-      fclose(public_fp);
-    if (public_fp)
       fclose(private_fp);
+    if (public_fp)
+      fclose(public_fp);
     EVP_PKEY_free(sm2key);
     EVP_PKEY_CTX_free(pctx);
     return luaL_error(L, "Write file failed after generate SM2 key.");
@@ -466,30 +466,188 @@ int lsm2decrypt(lua_State *L){
   return 1;
 }
 
-// 读取公钥
-static inline EVP_PKEY* hex_to_sm2pubkey(lua_State *L, const char* pub_key, const char* pri_key) {
+/*
+int lsm2key_export(lua_State *L){
+	const char* pkey = luaL_checkstring(L, 1);
+	const char* keyx = luaL_checkstring(L, 2);
+	const char* keyy = luaL_checkstring(L, 3);
+	const char* private_keyname = luaL_checkstring(L, 4);
+	const char* public_keyname = luaL_checkstring(L, 5);
+
 	EVP_PKEY *sm2key = NULL;
 	EC_KEY *ec_key = NULL;
 	EC_GROUP *ec_group = NULL;
+	EC_POINT *pt = NULL;
 	BIGNUM *kp = NULL;
 	BIGNUM *kx = NULL;
 	BIGNUM *ky = NULL;
 	//BIO *outbio = NULL;
-	char keyx[64];
-	char keyy[64];
-	const char* err = NULL;
 
-	if (128 != strlen(pri_key)) {
+	printf("%s: pri_key: %s len: %lu\n", __func__, pkey, strlen(pkey));
+	printf("%s: keyx: %s len: %lu\n", __func__, keyx, strlen(keyx));
+	printf("%s: keyy: %s len: %lu\n", __func__, keyy, strlen(keyy));
+
+	FILE *private_fp = fopen(private_keyname, "wb");
+	FILE *public_fp = fopen(public_keyname, "wb");
+	if (!private_fp || !public_fp) {
+		return luaL_error(L, "Write file failed after generate SM2 key.");
+	}
+
+	if (NULL == (ec_group = EC_GROUP_new_by_curve_name(NID_sm2)))
+	{
+		printf("%s: EC_GROUP_new_by_curve_name failed\n", __func__);
+		goto clean_up;
+	} 
+
+	if (NULL == (ec_key = EC_KEY_new())) {
+		printf("%s:EC_KEY_new failed\n", __func__);
+		goto clean_up;
+	}
+
+	if ( (EC_KEY_set_group(ec_key, ec_group) != 1 )){
+		printf("%s:EC_KEY_set_group failed\n", __func__);
+		goto clean_up;
+	}
+	if (NULL == (sm2key = EVP_PKEY_new())) {
+		printf("%s:EVP_PKEY_new failed\n", __func__);
+		goto clean_up;
+	}
+
+	if (BN_hex2bn(&kp, pkey)) {
+		pt = EC_POINT_new(ec_group);
+		if (pt) {
+			if (BN_hex2bn(&kx, keyx) &&
+					BN_hex2bn(&ky, keyy)) {
+				if ( !EC_POINT_set_affine_coordinates(ec_group, pt, kx, ky, NULL)) {
+					printf("%s: EC_POINT_set_affine_coordinates failed\n", __func__);
+					goto clean_up;
+				}
+				if ( !EC_KEY_set_public_key(ec_key, pt)) {
+					printf("%s: EC_KEY_set_public_key failed\n", __func__);
+					goto clean_up;
+				}
+				if ( !EC_KEY_set_private_key(ec_key, kp)) {
+					printf("%s: EC_KEY_set_private_key failed\n", __func__);
+					goto clean_up;
+				}
+				if ( !EVP_PKEY_assign_EC_KEY(sm2key, ec_key)) {
+					printf("%s: EVP_PKEY_assign_EC_KEY failed\n", __func__);
+					goto clean_up;
+				}
+				//outbio  = BIO_new(BIO_s_file());
+				//outbio = BIO_new_fp(stdout, BIO_NOCLOSE);
+				//if(!PEM_write_bio_PrivateKey(outbio, sm2key, NULL, NULL, 0, 0, NULL)) {
+				if(!PEM_write_PrivateKey(private_fp, sm2key, NULL, NULL, 0, 0, NULL)) {
+					//BIO_printf(outbio, "%s: Error writing private key data in PEM format %d\n", __func__, errno);
+					printf("%s: Error writing public key data in PEM format\n", __func__);
+					goto clean_up;
+				}
+
+				//if(!PEM_write_bio_PUBKEY(outbio, sm2key))
+				if(!PEM_write_PUBKEY(public_fp, sm2key)) {
+					//BIO_printf(outbio, "%s: Error writing public key data in PEM format\n", __func__);
+					printf("%s: Error writing private key data in PEM format\n", __func__);
+					goto clean_up;
+				}
+				
+			} else {
+				printf("%s: keyx keyy to bn failed\n", __func__);
+				goto clean_up;
+			}
+		} else {
+			printf("%s: EC_POINT_new failed\n", __func__);
+			goto clean_up;
+		}
+	} else {
+		printf("%s: pkey to bn failed\n", __func__);
+		goto clean_up;
+	}
+clean_up:
+	if (private_fp)
+		fclose(private_fp);
+	if (public_fp)
+		fclose(public_fp);
+	if (pt)
+		EC_POINT_free(pt);
+	if (kp)
+		BN_free(kp);
+	if (kx)
+		BN_free(kx);
+	if (ky)
+		BN_free(ky);
+	if (ec_key)
+		EC_KEY_free(ec_key);
+	if (ec_group)
+		EC_GROUP_free(ec_group);
+	if (sm2key)
+		EVP_PKEY_free(sm2key);
+	return 0;
+}
+*/
+
+// 从公钥和私钥生成证书
+int lsm2key_write(lua_State *L) {
+	const char* err = NULL;
+	const char* pub_key = luaL_checkstring(L, 1);
+	const char* public_keyname = luaL_checkstring(L, 2);
+	const char* pri_key = luaL_optstring(L, 3, NULL);
+	const char* private_keyname = luaL_optstring(L, 4, NULL);
+
+	EVP_PKEY_CTX *pctx = NULL;
+	EVP_PKEY *sm2key = NULL;
+	EC_KEY *ec_key = NULL;
+	EC_GROUP *ec_group = NULL;
+	EC_POINT *pt = NULL;
+	BIGNUM *kp = NULL;
+	BIGNUM *kx = NULL;
+	BIGNUM *ky = NULL;
+	char keyx[65] = {0};
+	char keyy[65] = {0};
+	//BIO *outbio = NULL;
+	FILE *public_fp = NULL;
+	FILE *private_fp = NULL;
+
+	if (128 != strlen(pub_key)) {
 		err = "Private key length error";
 		goto clean_up;
+	} else {
+		memcpy(keyx, pub_key, 64);
+		memcpy(keyy, pub_key + 64, 64);
+		//printf("%s: keyx: %s len: %lu\n", __func__, keyx, strlen(keyx));
+		//printf("%s: keyy: %s len: %lu\n", __func__, keyy, strlen(keyy));
+		if (!(BN_hex2bn(&kx, keyx) && BN_hex2bn(&ky, keyy))) {
+			err = "Public key string to bn failed";
+			goto clean_up;
+		}
+
+		public_fp = fopen(public_keyname, "wb");
+		if (!public_fp) {
+			err = "Failed to open public key file.";
+			goto clean_up;
+		}
 	}
-	if (64 != strlen(pub_key)) {
-		err = "Public key length error";
-		goto clean_up;
+	if (pri_key) {
+		if (64 != strlen(pri_key)) {
+			err = "Public key length error";
+			goto clean_up;
+		}
+		//printf("%s: pri_key: %s len: %lu\n", __func__, pri_key, strlen(pri_key));
+		if (private_keyname == NULL) {
+			err = "Private key file path missing";
+			goto clean_up;
+		}
+		if (!BN_hex2bn(&kp, pri_key)) {
+			err = "Private key string to bn failed";
+			goto clean_up;
+		}
+
+		private_fp = fopen(private_keyname, "wb");
+		if (!private_fp ) {
+			err = "Failed to open private key file.";
+			goto clean_up;
+		}
 	}
 
-	memcpy(keyx, pri_key, 64);
-	memcpy(keyy, pri_key + 64, 64);
 
 	if (NULL == (ec_group = EC_GROUP_new_by_curve_name(NID_sm2)))
 	{
@@ -507,62 +665,192 @@ static inline EVP_PKEY* hex_to_sm2pubkey(lua_State *L, const char* pub_key, cons
 		goto clean_up;
 	}
 
-	if (BN_hex2bn(&kp, pub_key)) {
-		EC_POINT *pt = EC_POINT_new(ec_group);
-		if (pt) {
-			if (BN_hex2bn(&kx, keyx) &&
-					BN_hex2bn(&ky, keyy)) {
-				if ( !EC_POINT_set_affine_coordinates(ec_group, pt, kx, ky, NULL)) {
-					err = "EC_POINT_set_affine_coordinates failed";
-					goto clean_up;
-				}
-				if ( !EC_KEY_set_public_key(ec_key, pt)) {
-					err ="EC_KEY_set_public_key failed";
-					goto clean_up;
-				}
-				if ( !EC_KEY_set_private_key(ec_key, kp)) {
-					err = "EC_KEY_set_private_key failed";
-					goto clean_up;
-				}
+	pt = EC_POINT_new(ec_group);
+	if (!pt) {
+		err = "EC_POINT_new failed";
+		goto clean_up;
+	}
 
-				if (NULL == (sm2key = EVP_PKEY_new())) {
-					err = "EVP_PKEY_new failed";
-					goto clean_up;
-				}
+	if (!EC_POINT_set_affine_coordinates(ec_group, pt, kx, ky, NULL)) {
+		err = "EC_POINT_set_affine_coordinates failed";
+		goto clean_up;
+	}
 
-				if ( !EVP_PKEY_assign_EC_KEY(sm2key, ec_key)) {
-					err = "EVP_PKEY_assign_EC_KEY failed";
-					EVP_PKEY_free(sm2key);
-					sm2key = NULL;
-					goto clean_up;
-				}
+	if (!EC_KEY_set_public_key(ec_key, pt)) {
+		err ="EC_KEY_set_public_key failed";
+		goto clean_up;
+	}
 
-				/*
-				outbio  = BIO_new(BIO_s_file());
-				outbio = BIO_new_fp(stdout, BIO_NOCLOSE);
-				if(!PEM_write_bio_PrivateKey(outbio, sm2key, NULL, NULL, 0, 0, NULL)) {
-					BIO_printf(outbio, "Error writing private key data in PEM format %d\n", errno);
-				}
+	if (pri_key && !EC_KEY_set_private_key(ec_key, kp)) {
+		err = "EC_KEY_set_private_key failed";
+		goto clean_up;
+	}
 
-				if(!PEM_write_bio_PUBKEY(outbio, sm2key))
-					BIO_printf(outbio, "Error writing public key data in PEM format\n");
-				*/	
-			} else {
-				err = "keyx keyy to bn failed";
-				goto clean_up;
-			}
-		} else {
-			err = "EC_POINT_new failed";
+	if (NULL == (sm2key = EVP_PKEY_new())) {
+		err = "EVP_PKEY_new failed";
+		goto clean_up;
+	}
+
+	/*
+	pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+	if (pctx) {
+		if(1 != EVP_PKEY_keygen_init(pctx)) {
+			err = "EVP_PKEY_keygen_init failed";
 			goto clean_up;
 		}
 	} else {
-		err = "pkey to bn failed";
+		err = "EVP_PKEY_CTX_new_id failed";
+		goto clean_up;
+	}
+	*/
+
+	if ( !EVP_PKEY_assign_EC_KEY(sm2key, ec_key)) {
+		err = "EVP_PKEY_assign_EC_KEY failed";
+		goto clean_up;
+	}
+
+	/*
+	outbio  = BIO_new(BIO_s_file());
+	outbio = BIO_new_fp(stdout, BIO_NOCLOSE);
+	if(!PEM_write_bio_PrivateKey(outbio, sm2key, NULL, NULL, 0, 0, NULL)) {
+	BIO_printf(outbio, "%s: Error writing private key data in PEM format\n", __func__);
+	}
+
+	if(!PEM_write_bio_PUBKEY(outbio, sm2key))
+	BIO_printf(outbio, "%s: Error writing public key data in PEM format\n", __func__);
+	*/	
+
+	if(!PEM_write_PUBKEY(public_fp, sm2key)) {
+		err = "Error writing public key data in PEM format";
+		goto clean_up;
+	}
+
+	if(pri_key && !PEM_write_PrivateKey(private_fp, sm2key, NULL, NULL, 0, 0, NULL)) {
+		err = "Error writing private key data in PEM format";
 		goto clean_up;
 	}
 
 clean_up:
+	if (private_fp)
+		fclose(private_fp);
+	if (public_fp)
+		fclose(public_fp);
+	if (pt)
+		EC_POINT_free(pt);
 	if (kp)
 		BN_free(kp);
+	if (kx)
+		BN_free(kx);
+	if (ky)
+		BN_free(ky);
+	// EC_KEY only be free when not assigned to EVP_PKEY
+	if (ec_key && !sm2key)
+		EC_KEY_free(ec_key);
+	if (ec_group)
+		EC_GROUP_free(ec_group);
+	if (sm2key)
+		EVP_PKEY_free(sm2key);
+
+	if (pctx)
+		EVP_PKEY_CTX_free(pctx);
+
+	if (err) {
+		return luaL_error(L, err);
+	}
+
+	lua_pushboolean(L, 1);
+	return 1;
+}
+
+/*
+// 从公钥生成证书
+int lsm2pubkey_write(lua_State *L) {
+	const char* err = NULL;
+	const char* pub_key = luaL_checkstring(L, 1);
+	const char* keyname = luaL_checkstring(L, 2);
+	EVP_PKEY *sm2key = NULL;
+	EC_KEY *ec_key = NULL;
+	EC_GROUP *ec_group = NULL;
+	EC_POINT *pt = NULL;
+	BIGNUM *kx = NULL;
+	BIGNUM *ky = NULL;
+	char keyx[65] = {0};
+	char keyy[65] = {0};
+	//BIO *outbio = NULL;
+
+	FILE *fp = fopen(keyname, "wb");
+	if (!fp) {
+		err = "Write file failed after generate SM2 key.";
+		goto clean_up;
+	}
+
+	if (128 != strlen(pub_key)) {
+		err = "Private key length error";
+		goto clean_up;
+	}
+
+	memcpy(keyx, pub_key, 64);
+	memcpy(keyy, pub_key + 64, 64);
+
+	printf("%s: keyx: %s len: %lu\n", __func__, keyx, strlen(keyx));
+	printf("%s: keyy: %s len: %lu\n", __func__, keyy, strlen(keyy));
+
+	if (NULL == (ec_group = EC_GROUP_new_by_curve_name(NID_sm2)))
+	{
+		err = "EC_GROUP_new_by_curve_name failed";
+		goto clean_up;
+	} 
+
+	if (NULL == (ec_key = EC_KEY_new())) {
+		err = "EC_KEY_new failed";
+		goto clean_up;
+	}
+
+	if ( (EC_KEY_set_group(ec_key, ec_group) != 1 )){
+		err = "EC_KEY_set_group failed";
+		goto clean_up;
+	}
+
+	if (NULL == (pt = EC_POINT_new(ec_group))) {
+		err = "EC_POINT_new failed";
+		goto clean_up;
+	}
+
+	if (!(BN_hex2bn(&kx, keyx) && BN_hex2bn(&ky, keyy))) {
+		err = "Public key string to bn failed";
+		goto clean_up;
+	}
+
+	if ( !EC_POINT_set_affine_coordinates(ec_group, pt, kx, ky, NULL)) {
+		err = "EC_POINT_set_affine_coordinates failed";
+		goto clean_up;
+	}
+
+	if ( !EC_KEY_set_public_key(ec_key, pt)) {
+		err ="EC_KEY_set_public_key failed";
+		goto clean_up;
+	}
+
+	if (NULL == (sm2key = EVP_PKEY_new())) {
+		err = "EVP_PKEY_new failed";
+		goto clean_up;
+	}
+
+	if ( !EVP_PKEY_assign_EC_KEY(sm2key, ec_key)) {
+		err = "EVP_PKEY_assign_EC_KEY failed";
+		goto clean_up;
+	}
+
+	if(!PEM_write_PUBKEY(fp, sm2key)) {
+		err = "Error writing public key data in PEM format";
+		goto clean_up;
+	}
+
+clean_up:
+	if (fp)
+		fclose(fp);
+	if (pt)
+		EC_POINT_free(pt);
 	if (kx)
 		BN_free(kx);
 	if (ky)
@@ -571,52 +859,6 @@ clean_up:
 		EC_KEY_free(ec_key);
 	if (ec_group)
 		EC_GROUP_free(ec_group);
-	/*
-	if (sm2key)
-		EVP_PKEY_free(sm2key);
-	*/
-	if (!sm2key) {
-		return luaL_error(L, err), NULL;
-	}
-	return sm2key;
-}
-
-int lsm2key_export(lua_State *L) {
-	const char* err = NULL;
-	const char* pub_key = luaL_checkstring(L, 1);
-	const char* pri_key = luaL_checkstring(L, 2);
-	const char* private_keyname = luaL_checkstring(L, 3);
-	const char* public_keyname = luaL_checkstring(L, 4);
-	EVP_PKEY *sm2key = hex_to_sm2pubkey(L, pub_key, pri_key);
-	if (!sm2key) {
-		return luaL_error(L, "Write file failed after generate SM2 key.");
-	}
-
-	FILE *private_fp = fopen(private_keyname, "wb");
-	FILE *public_fp = fopen(public_keyname, "wb");
-	if (!private_fp || !public_fp) {
-		err = "Write file failed after generate SM2 key.";
-		goto clean_up;
-		//return luaL_error(L, "Write file failed after generate SM2 key.");
-	}
-
-	if(!PEM_write_PrivateKey(private_fp, sm2key, NULL, NULL, 0, 0, NULL)) {
-		err = "Error writing private key data in PEM format";
-		goto clean_up;
-		//return luaL_error(L, "Error writing private key data in PEM format");
-	}
-
-	if(!PEM_write_PUBKEY(public_fp, sm2key)) {
-		err = "Error writing public key data in PEM format";
-		goto clean_up;
-		//return luaL_error(L, "Error writing public key data in PEM format\n");
-	}
-
-clean_up:
-	if (private_fp)
-		fclose(public_fp);
-	if (public_fp)
-		fclose(private_fp);
 	if (sm2key)
 		EVP_PKEY_free(sm2key);
 
@@ -626,109 +868,91 @@ clean_up:
 
 	return 0;
 }
-/*
-int lsm2key_export(lua_State *L){
-	const char* pkey = luaL_checkstring(L, 1);
-	const char* keyx = luaL_checkstring(L, 2);
-	const char* keyy = luaL_checkstring(L, 3);
-	const char* private_keyname = luaL_checkstring(L, 4);
-	const char* public_keyname = luaL_checkstring(L, 5);
+*/
 
+// 从私钥生成证书(单独私钥不能导出证书????)
+/*
+int lsm2prikey_write(lua_State *L) {
+	const char* err = NULL;
+	const char* pri_key = luaL_checkstring(L, 1);
+	const char* keyname = luaL_checkstring(L, 2);
 	EVP_PKEY *sm2key = NULL;
 	EC_KEY *ec_key = NULL;
 	EC_GROUP *ec_group = NULL;
+	EC_POINT *pt = NULL;
 	BIGNUM *kp = NULL;
-	BIGNUM *kx = NULL;
-	BIGNUM *ky = NULL;
-	BIO *outbio = NULL;
 
-	FILE *private_fp = fopen(private_keyname, "wb");
-	FILE *public_fp = fopen(public_keyname, "wb");
-	if (!private_fp || !public_fp) {
-		return luaL_error(L, "Write file failed after generate SM2 key.");
+	printf("%s: pri_key: %s len: %lu\n", __func__, pri_key, strlen(pri_key));
+
+	FILE *fp = fopen(keyname, "wb");
+	if (!fp) {
+		err = "Write file failed after generate SM2 key.";
+		goto clean_up;
+	}
+
+	if (pri_key && 64 != strlen(pri_key)) {
+		err = "Public key length error";
+		goto clean_up;
 	}
 
 	if (NULL == (ec_group = EC_GROUP_new_by_curve_name(NID_sm2)))
 	{
-		printf("EC_GROUP_new_by_curve_name failed\n");
+		err = "EC_GROUP_new_by_curve_name failed";
 		goto clean_up;
 	} 
 
 	if (NULL == (ec_key = EC_KEY_new())) {
-		printf("EC_KEY_new failed\n");
+		err = "EC_KEY_new failed";
 		goto clean_up;
 	}
 
-	if ( (EC_KEY_set_group(ec_key, ec_group) != 1 )){
-		printf("EC_KEY_set_group failed\n");
+	if ((EC_KEY_set_group(ec_key, ec_group) != 1 )){
+		err = "EC_KEY_set_group failed";
 		goto clean_up;
 	}
+
+	if (!BN_hex2bn(&kp, pri_key)) {
+		err = "Private key string to bn failed";
+		goto clean_up;
+	}
+
+	if (!EC_KEY_set_private_key(ec_key, kp)) {
+		err = "EC_KEY_set_private_key failed";
+		goto clean_up;
+	}
+
 	if (NULL == (sm2key = EVP_PKEY_new())) {
-		printf("EVP_PKEY_new failed\n");
+		err = "EVP_PKEY_new failed";
 		goto clean_up;
 	}
 
-	if (BN_hex2bn(&kp, pkey)) {
-		EC_POINT *pt = EC_POINT_new(ec_group);
-		if (pt) {
-			if (BN_hex2bn(&kx, keyx) &&
-					BN_hex2bn(&ky, keyy)) {
-				if ( !EC_POINT_set_affine_coordinates(ec_group, pt, kx, ky, NULL)) {
-					printf("EC_POINT_set_affine_coordinates failed\n");
-					goto clean_up;
-				}
-				if ( !EC_KEY_set_public_key(ec_key, pt)) {
-					printf("EC_KEY_set_public_key failed\n");
-					goto clean_up;
-				}
-				if ( !EC_KEY_set_private_key(ec_key, kp)) {
-					printf("EC_KEY_set_private_key failed\n");
-					goto clean_up;
-				}
-				if ( !EVP_PKEY_assign_EC_KEY(sm2key, ec_key)) {
-					printf("EVP_PKEY_assign_EC_KEY failed\n");
-					goto clean_up;
-				}
-				outbio  = BIO_new(BIO_s_file());
-				outbio = BIO_new_fp(stdout, BIO_NOCLOSE);
-				//if(!PEM_write_bio_PrivateKey(outbio, sm2key, NULL, NULL, 0, 0, NULL)) {
-				if(!PEM_write_PrivateKey(private_fp, sm2key, NULL, NULL, 0, 0, NULL)) {
-					BIO_printf(outbio, "Error writing private key data in PEM format %d\n", errno);
-				}
-
-				//if(!PEM_write_bio_PUBKEY(outbio, sm2key))
-				if(!PEM_write_PUBKEY(public_fp, sm2key))
-					BIO_printf(outbio, "Error writing public key data in PEM format\n");
-				
-			} else {
-				printf("keyx keyy to bn failed\n");
-				goto clean_up;
-			}
-		} else {
-			printf("EC_POINT_new failed\n");
-			goto clean_up;
-		}
-	} else {
-		printf("pkey to bn failed\n");
+	if ( !EVP_PKEY_assign_EC_KEY(sm2key, ec_key)) {
+		err = "EVP_PKEY_assign_EC_KEY failed";
+		EVP_PKEY_free(sm2key);
+		sm2key = NULL;
 		goto clean_up;
 	}
+
+	if(!PEM_write_PrivateKey(fp, sm2key, NULL, NULL, 0, 0, NULL)) {
+		err = "Error writing private key data in PEM format";
+		goto clean_up;
+	}
+
 clean_up:
-	if (private_fp)
-		fclose(public_fp);
-	if (public_fp)
-		fclose(private_fp);
+	if (fp)
+		fclose(fp);
 	if (kp)
 		BN_free(kp);
-	if (kx)
-		BN_free(kx);
-	if (ky)
-		BN_free(ky);
 	if (ec_key)
 		EC_KEY_free(ec_key);
 	if (ec_group)
 		EC_GROUP_free(ec_group);
 	if (sm2key)
 		EVP_PKEY_free(sm2key);
+	if (err) {
+		return luaL_error(L, err);
+	}
+
 	return 0;
 }
 */
