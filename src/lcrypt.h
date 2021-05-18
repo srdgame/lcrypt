@@ -5,7 +5,6 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
-#include <openssl/ssl.h>
 #include <openssl/md5.h>
 #include <openssl/sha.h>
 #include <openssl/pem.h>

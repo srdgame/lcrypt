@@ -85,13 +85,13 @@ function SM.sm2verify(pub_path, id, text, sign, b64)
 end
 
 -- SM2加密
-function SM.sm2encrypt(pub_path, text)
-  return sm2encrypt(pub_path, text, sign)
+function SM.sm2encrypt(srv_pub_path, text)
+  return sm2encrypt(srv_pub_path, text)
 end
 
 -- SM2解密
-function SM.sm2decrypt(pub_path, text)
-  return sm2decrypt(pub_path, text, sign)
+function SM.sm2decrypt(pri_path, text)
+  return sm2decrypt(pri_path, text)
 end
 
 -- SM4分组加密算法之CBC

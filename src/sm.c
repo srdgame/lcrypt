@@ -27,6 +27,8 @@ int lsm2keygen(lua_State *L){ return SM_THROW(L); }
 int lsm2sign(lua_State *L) { return SM_THROW(L); }
 int lsm2verify(lua_State *L) { return SM_THROW(L); }
 
+int lsm2key_write(lua_State *L) { return SM_THROW(L); }
+
 #else
 
 #ifndef SM3_BLOCK_SIZE
@@ -403,6 +405,11 @@ int lsm2encrypt(lua_State *L){
 
   EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(sm2key, NULL);
 
+  if (!pctx) {
+	EVP_PKEY_free(sm2key);
+    return luaL_error(L, "EVP_PKEY_CTX_new failed.");
+  }
+
   if (1 != EVP_PKEY_encrypt_init(pctx)) {
 	EVP_PKEY_free(sm2key);
 	EVP_PKEY_CTX_free(pctx);
@@ -434,10 +441,15 @@ int lsm2decrypt(lua_State *L){
   size_t tsize = 0;
   const char* text = luaL_checklstring(L, 2, &tsize);
 
-  EVP_PKEY *sm2key = load_sm2pubkey(L);
+  EVP_PKEY *sm2key = load_sm2prikey(L);
   EVP_PKEY_set_alias_type(sm2key, EVP_PKEY_SM2);
 
   EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(sm2key, NULL);
+
+  if (!pctx) {
+	EVP_PKEY_free(sm2key);
+    return luaL_error(L, "EVP_PKEY_CTX_new failed.");
+  }
 
   if (1 != EVP_PKEY_decrypt_init(pctx)) {
 	EVP_PKEY_free(sm2key);
@@ -449,7 +461,7 @@ int lsm2decrypt(lua_State *L){
   if (1 != EVP_PKEY_decrypt(pctx, NULL, &out_size, (const unsigned char*)text, tsize)) {
 	EVP_PKEY_free(sm2key);
 	EVP_PKEY_CTX_free(pctx);
-    return luaL_error(L, "EVP_PKEY_decrypt failed.");
+    return luaL_error(L, "EVP_PKEY_decrypt get size failed.");
   }
 
   uint8_t *out = lua_newuserdata(L, out_size);
@@ -457,7 +469,7 @@ int lsm2decrypt(lua_State *L){
   if (1 != EVP_PKEY_decrypt(pctx, out, &out_size, (const unsigned char*)text, tsize)) {
 	EVP_PKEY_free(sm2key);
 	EVP_PKEY_CTX_free(pctx);
-    return luaL_error(L, "EVP_PKEY_decrypt failed.");
+    return luaL_error(L, "EVP_PKEY_decrypt do decrypt failed.");
   }
 
   lua_pushlstring(L, (const char*)out, out_size);
@@ -593,7 +605,6 @@ int lsm2key_write(lua_State *L) {
 	const char* pri_key = luaL_optstring(L, 3, NULL);
 	const char* private_keyname = luaL_optstring(L, 4, NULL);
 
-	EVP_PKEY_CTX *pctx = NULL;
 	EVP_PKEY *sm2key = NULL;
 	EC_KEY *ec_key = NULL;
 	EC_GROUP *ec_group = NULL;
@@ -691,19 +702,6 @@ int lsm2key_write(lua_State *L) {
 		goto clean_up;
 	}
 
-	/*
-	pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
-	if (pctx) {
-		if(1 != EVP_PKEY_keygen_init(pctx)) {
-			err = "EVP_PKEY_keygen_init failed";
-			goto clean_up;
-		}
-	} else {
-		err = "EVP_PKEY_CTX_new_id failed";
-		goto clean_up;
-	}
-	*/
-
 	if ( !EVP_PKEY_assign_EC_KEY(sm2key, ec_key)) {
 		err = "EVP_PKEY_assign_EC_KEY failed";
 		goto clean_up;
@@ -750,9 +748,6 @@ clean_up:
 		EC_GROUP_free(ec_group);
 	if (sm2key)
 		EVP_PKEY_free(sm2key);
-
-	if (pctx)
-		EVP_PKEY_CTX_free(pctx);
 
 	if (err) {
 		return luaL_error(L, err);
