@@ -15,7 +15,7 @@ static int lxor_str(lua_State *L) {
   luaL_Buffer b;
   char * buffer = luaL_buffinitsize(L, &b, len1);
 
-  size_t i;
+  int i;
   for (i = 0; i < len1; i ++)
     buffer[i] = s1[i] ^ s2[i % len2];
 
@@ -45,6 +45,7 @@ static int lrandomkey(lua_State *L) {
 
 #define lua_set_key_INT(L, key, value) ({ lua_pushstring((L), (key)); lua_pushinteger((L), (value)); lua_rawset((L), -3); })
 #define lua_set_key_STR(L, key, value) ({ lua_pushstring((L), (key)); lua_pushstring((L), (value)); lua_rawset((L), -3); })
+#define lua_set_key_PTR(L, key, value) ({ lua_pushstring((L), (key)); lua_pushlightuserdata((L), (void*)(value)); lua_rawset((L), -3); })
 
 static int crypt_set_key_value(lua_State *L) {
   /* OPENSSL VERSION NUMBER */
@@ -62,6 +63,15 @@ static int crypt_set_key_value(lua_State *L) {
   lua_set_key_INT(L, "nid_sha256", NID_sha256);
   lua_set_key_INT(L, "nid_sha512", NID_sha512);
 
+  /* 增加EVP的摘要方法模型  */
+  lua_set_key_PTR(L, "EVP_md5", EVP_md5());
+  // lua_set_key_PTR(L, "EVP_blake256", EVP_blake2s256());
+  // lua_set_key_PTR(L, "EVP_blake512", EVP_blake2b512());
+  lua_set_key_PTR(L, "EVP_sha128", EVP_sha1());
+  lua_set_key_PTR(L, "EVP_sha224", EVP_sha224());
+  lua_set_key_PTR(L, "EVP_sha256", EVP_sha256());
+  lua_set_key_PTR(L, "EVP_sha384", EVP_sha384());
+  lua_set_key_PTR(L, "EVP_sha512", EVP_sha512());
   return 1;
 }
 
@@ -84,16 +94,20 @@ LUAMOD_API int luaopen_lcrypt(lua_State *L) {
     { "urlencode", lurlencode },
     { "urldecode", lurldecode },
     // SHA
+    { "md4", lmd4 },
     { "md5", lmd5 },
     { "crc32", lcrc32 },
     { "crc64", lcrc64 },
+    { "adler32", ladler32 },
     { "sha1", lsha128 },
     { "sha128", lsha128 },
     { "sha224", lsha224 },
     { "sha256", lsha256 },
     { "sha384", lsha384 },
     { "sha512", lsha512 },
+    { "ripemd160", lripemd160},
     // HMAC
+    { "hmac_md4", lhmac_md4 },
     { "hmac_md5", lhmac_md5 },
     { "hmac_sha1", lhmac_sha128 },
     { "hmac_sha128", lhmac_sha128 },
@@ -102,6 +116,8 @@ LUAMOD_API int luaopen_lcrypt(lua_State *L) {
     { "hmac_sha384", lhmac_sha384 },
     { "hmac_sha512", lhmac_sha512 },
     { "hmac_hash", lhmac_hash },
+    { "hmac_ripemd160", lhmac_ripemd160},
+    { "hmac_pbkdf2", lhmac_pbkdf2 },
     { "xor_str", lxor_str },
     // 公钥加密 -> 私钥解密
     { "rsa_public_key_encode", lrsa_public_key_encode },
@@ -126,6 +142,7 @@ LUAMOD_API int luaopen_lcrypt(lua_State *L) {
     { "aes_ofb_decrypt", laes_ofb_decrypt },
     { "aes_ctr_decrypt", laes_ctr_decrypt },
     { "aes_gcm_decrypt", laes_gcm_decrypt },
+    { "rc4", lrc4 },
     // DES加密/解密
     { "desencode", ldesencode },
     { "desdecode", ldesdecode },

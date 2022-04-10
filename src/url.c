@@ -14,7 +14,7 @@ int lurlencode(lua_State *L){
 	luaL_Buffer convert_url;
 	luaL_buffinit(L, &convert_url);
 
-	size_t index;
+	int index;
 	for (index = 0; index < url_len;) {
 		uint8_t ch = (uint8_t)url[index++];
 		if (ch == (uint8_t)' ') {
@@ -43,7 +43,7 @@ int lurldecode(lua_State *L){
 	luaL_Buffer convert_url;
 	luaL_buffinit(L, &convert_url);
 
-	size_t index;
+	int index;
 	for (index = 0; index < url_len;) {
 
 		uint8_t ch = (uint8_t)url[index++];

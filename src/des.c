@@ -371,7 +371,7 @@ int ldesdecode(lua_State *L) {
   uint32_t ESK[32];
   des_key(L, ESK);
   uint32_t SK[32];
-  size_t i;
+  int i;
   for( i = 0; i < 32; i += 2 ) {
     SK[i] = ESK[30 - i];
     SK[i + 1] = ESK[31 - i];

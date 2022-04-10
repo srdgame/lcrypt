@@ -102,7 +102,7 @@ int lrsa_private_key_decode(lua_State *L) {
   luaL_Buffer b;
   unsigned char* result = (unsigned char*)luaL_buffinitsize(L, &b, RSA_size(key));
 
-  int len = RSA_private_decrypt(text_size, text, result, key, get_mode(L));
+  size_t len = RSA_private_decrypt(text_size, text, result, key, get_mode(L));
   if (0 > len) {
     RSA_free(key);
     luaL_pushresultsize(&b, 0);
@@ -153,7 +153,7 @@ int lrsa_public_key_decode(lua_State *L){
   luaL_Buffer b;
   unsigned char* result = (unsigned char*)luaL_buffinitsize(L, &b, RSA_size(key));
 
-  int len = RSA_public_decrypt(text_size, text, result, key, get_mode(L));
+  size_t len = RSA_public_decrypt(text_size, text, result, key, get_mode(L));
   if (0 > len) {
     RSA_free(key);
     luaL_pushresultsize(&b, 0);
