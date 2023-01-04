@@ -15,6 +15,8 @@
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
 
+#include <stdint.h>
+
 #define SMALL_CHUNK 256
 
 int luuid(lua_State *L);
