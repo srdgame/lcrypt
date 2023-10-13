@@ -15,7 +15,7 @@ static int lxor_str(lua_State *L) {
   luaL_Buffer b;
   char * buffer = luaL_buffinitsize(L, &b, len1);
 
-  int i;
+  size_t i;
   for (i = 0; i < len1; i ++)
     buffer[i] = s1[i] ^ s2[i % len2];
 

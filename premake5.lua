@@ -1,7 +1,6 @@
 -- A solution
 workspace "lua-crypt"
 	configurations { "Debug", "Release"}
-	location "build"
 
 project "lcrypt"
 	kind "SharedLib"
@@ -11,7 +10,7 @@ project "lcrypt"
 	targetdir "bin/%{cfg.buildcfg}"
 
 	includedirs { 
-		"/usr/include/lua5.3",
+		"/usr/include/lua5.4",
 		--"/home/cch/mycode/skynet/3rd/lua/",
 		".",
 	}

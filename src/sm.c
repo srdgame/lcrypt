@@ -319,6 +319,30 @@ int lsm2keygen(lua_State *L){
 	return sm2keygen(L);
 }
 
+static int openssl_pkey_is_sm2(const EVP_PKEY *pkey)
+{
+  int id;
+#if OPENSSL_VERSION_NUMBER > 0x30000000L
+  id = EVP_PKEY_get_id(pkey);
+  if (id == NID_sm2)
+    return 1;
+#else
+  id = EVP_PKEY_id(pkey);
+  if (id == EVP_PKEY_SM2)
+    return 1;
+#endif
+
+  id = EVP_PKEY_base_id(pkey);
+  if(id==EVP_PKEY_EC)
+  {
+    const EC_KEY *ec = EVP_PKEY_get0_EC_KEY((EVP_PKEY*)pkey);
+    const EC_GROUP *grp = EC_KEY_get0_group(ec);
+    int curve = EC_GROUP_get_curve_name(grp);
+    return curve==NID_sm2;
+  }
+  return 0;
+}
+
 int lsm2sign(lua_State *L){
 	size_t idsize = 0;
 	const char* id = luaL_checklstring(L, 2, &idsize);
@@ -327,7 +351,13 @@ int lsm2sign(lua_State *L){
 	const char* text = luaL_checklstring(L, 3, &tsize);
 
 	EVP_PKEY *sm2key = load_sm2prikey(L);
+
+#if OPENSSL_VERSION_NUMBER > 0x30000000L
+	if (!openssl_pkey_is_sm2(sm2key))
+		return luaL_error(L, "PKEY is not sm2 type!");
+#else
 	EVP_PKEY_set_alias_type(sm2key, EVP_PKEY_SM2);
+#endif
 
 	EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
 	EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(sm2key, NULL);
@@ -377,7 +407,12 @@ int lsm2verify(lua_State *L){
   const char* cipher = luaL_checklstring(L, 4, &csize);
 
   EVP_PKEY *sm2key = load_sm2pubkey(L);
+#if OPENSSL_VERSION_NUMBER > 0x30000000L
+	if (!openssl_pkey_is_sm2(sm2key))
+		return luaL_error(L, "PKEY is not sm2 type!");
+#else
   EVP_PKEY_set_alias_type(sm2key, EVP_PKEY_SM2);
+#endif
 
   EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
   EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(sm2key, NULL);
@@ -401,7 +436,12 @@ int lsm2encrypt(lua_State *L){
   const char* text = luaL_checklstring(L, 2, &tsize);
 
   EVP_PKEY *sm2key = load_sm2pubkey(L);
+#if OPENSSL_VERSION_NUMBER > 0x30000000L
+	if (!openssl_pkey_is_sm2(sm2key))
+		return luaL_error(L, "PKEY is not sm2 type!");
+#else
   EVP_PKEY_set_alias_type(sm2key, EVP_PKEY_SM2);
+#endif
 
   EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(sm2key, NULL);
 
@@ -442,7 +482,12 @@ int lsm2decrypt(lua_State *L){
   const char* text = luaL_checklstring(L, 2, &tsize);
 
   EVP_PKEY *sm2key = load_sm2prikey(L);
+#if OPENSSL_VERSION_NUMBER > 0x30000000L
+	if (!openssl_pkey_is_sm2(sm2key))
+		return luaL_error(L, "PKEY is not sm2 type!");
+#else
   EVP_PKEY_set_alias_type(sm2key, EVP_PKEY_SM2);
+#endif
 
   EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new(sm2key, NULL);
 
