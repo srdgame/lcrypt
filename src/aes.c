@@ -1,5 +1,12 @@
 #include "lcrypt.h"
 
+#ifndef EVP_PADDING_PKCS7
+#define EVP_PADDING_PKCS7 1
+#endif
+#ifndef EVP_PADDING_ZERO
+#define EVP_PADDING_ZERO 5
+#endif
+
 #define AES_ECB_MODE (0)
 #define AES_CBC_MODE (1)
 #define AES_CFB_MODE (2)
