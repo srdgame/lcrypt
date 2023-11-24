@@ -117,3 +117,8 @@ int lsm4_ofb_decrypt(lua_State *L);
 
 int lsm4_ctr_encrypt(lua_State *L);
 int lsm4_ctr_decrypt(lua_State *L);
+
+int lnow(lua_State* L);
+int ltime(lua_State* L);
+int los(lua_State* L);
+int lhostname(lua_State* L);

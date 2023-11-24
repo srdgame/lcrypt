@@ -2,9 +2,8 @@ local CRYPT = require "lcrypt"
 local uuid = CRYPT.uuid
 local guid = CRYPT.guid
 
-local sys = require "sys"
-local now = sys.now
-local hostname = sys.hostname
+local now = CRYPT.now or require('sys').now
+local hostname = CRYPT.hostname or require('sys').hostname
 
 local modf = math.modf
 

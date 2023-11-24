@@ -168,6 +168,11 @@ LUAMOD_API int luaopen_lcrypt(lua_State *L) {
     { "sm4_ofb_decrypt", lsm4_ofb_decrypt },
     { "sm4_ctr_encrypt", lsm4_ctr_encrypt },
     { "sm4_ctr_decrypt", lsm4_ctr_decrypt },
+	// SYS port
+    { "now", lnow },
+    { "time", ltime },
+    { "os", los },
+    { "hostname", lhostname },
     { NULL, NULL },
   };
   luaL_newlib(L, lcrypt);
