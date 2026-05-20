@@ -1,6 +1,11 @@
 #include "lcrypt.h"
 #include <errno.h>
 #include <openssl/err.h>
+#include <openssl/evp.h>
+#if OPENSSL_VERSION_NUMBER > 0x30000000L
+#include <openssl/core_names.h>
+#include <openssl/param_build.h>
+#endif
 
 #if OPENSSL_VERSION_NUMBER < 0x10101000L || defined(OPENSSL_NO_SM2) || defined(OPENSSL_NO_SM3) || defined(OPENSSL_NO_SM4)
 
@@ -319,29 +324,31 @@ int lsm2keygen(lua_State *L){
 	return sm2keygen(L);
 }
 
+#if OPENSSL_VERSION_NUMBER > 0x30000000L
 static int openssl_pkey_is_sm2(const EVP_PKEY *pkey)
 {
   int id;
-#if OPENSSL_VERSION_NUMBER > 0x30000000L
   id = EVP_PKEY_get_id(pkey);
   if (id == NID_sm2)
     return 1;
-#else
-  id = EVP_PKEY_id(pkey);
-  if (id == EVP_PKEY_SM2)
-    return 1;
-#endif
 
   id = EVP_PKEY_base_id(pkey);
   if(id==EVP_PKEY_EC)
   {
-    const EC_KEY *ec = EVP_PKEY_get0_EC_KEY((EVP_PKEY*)pkey);
-    const EC_GROUP *grp = EC_KEY_get0_group(ec);
-    int curve = EC_GROUP_get_curve_name(grp);
-    return curve==NID_sm2;
+	  char curve_name[80] = {0};
+	  size_t curve_name_len = 0;
+
+	  if (EVP_PKEY_get_utf8_string_param(pkey,
+				  OSSL_PKEY_PARAM_GROUP_NAME,
+				  curve_name,
+				  sizeof(curve_name),
+				  &curve_name_len) == 1) {
+		  return (strcmp(curve_name, "SM2") == 0);
+	  }
   }
   return 0;
 }
+#endif
 
 int lsm2sign(lua_State *L){
 	size_t idsize = 0;
@@ -643,6 +650,186 @@ clean_up:
 */
 
 // 从公钥和私钥生成证书
+#if OPENSSL_VERSION_NUMBER > 0x30000000L
+int lsm2key_write(lua_State *L) {
+	const char* err = NULL;
+	const char* pub_key = luaL_checkstring(L, 1);
+	const char* public_keyname = luaL_checkstring(L, 2);
+	const char* pri_key = luaL_optstring(L, 3, NULL);
+	const char* private_keyname = luaL_optstring(L, 4, NULL);
+
+	EVP_PKEY *sm2key = NULL;
+	EVP_PKEY_CTX *ctx = NULL;
+	BIGNUM *kp = NULL;
+	BIGNUM *kx = NULL;
+	BIGNUM *ky = NULL;
+	char keyx[65] = {0};
+	char keyy[65] = {0};
+	FILE *public_fp = NULL;
+	FILE *private_fp = NULL;
+	
+	// OpenSSL 3.0 参数构建
+	OSSL_PARAM_BLD *param_bld = NULL;
+	OSSL_PARAM *params = NULL;
+	unsigned char pub_key_bin[64] = {0};  // SM2 公钥：32字节 x + 32字节 y
+	unsigned char priv_key_bin[32] = {0}; // SM2 私钥：32字节
+
+	if (128 != strlen(pub_key)) {
+		err = "Private key length error";
+		goto clean_up;
+	} else {
+		memcpy(keyx, pub_key, 64);
+		memcpy(keyy, pub_key + 64, 64);
+		
+		if (!(BN_hex2bn(&kx, keyx) && BN_hex2bn(&ky, keyy))) {
+			err = "Public key string to bn failed";
+			goto clean_up;
+		}
+
+		// 转换 BIGNUM 到二进制格式（32字节）
+		if (BN_bn2binpad(kx, pub_key_bin, 32) != 32 ||
+		    BN_bn2binpad(ky, pub_key_bin + 32, 32) != 32) {
+			err = "Failed to convert public key coordinates";
+			goto clean_up;
+		}
+
+		public_fp = fopen(public_keyname, "wb");
+		if (!public_fp) {
+			err = "Failed to open public key file.";
+			goto clean_up;
+		}
+	}
+	
+	if (pri_key) {
+		if (64 != strlen(pri_key)) {
+			err = "Public key length error";
+			goto clean_up;
+		}
+		if (private_keyname == NULL) {
+			err = "Private key file path missing";
+			goto clean_up;
+		}
+		if (!BN_hex2bn(&kp, pri_key)) {
+			err = "Private key string to bn failed";
+			goto clean_up;
+		}
+		
+		// 转换私钥 BIGNUM 到二进制格式（32字节）
+		if (BN_bn2binpad(kp, priv_key_bin, 32) != 32) {
+			err = "Failed to convert private key";
+			goto clean_up;
+		}
+
+		private_fp = fopen(private_keyname, "wb");
+		if (!private_fp) {
+			err = "Failed to open private key file.";
+			goto clean_up;
+		}
+	}
+
+	// 使用 OpenSSL 3.0 的 OSSL_PARAM_BLD 构建参数
+	param_bld = OSSL_PARAM_BLD_new();
+	if (!param_bld) {
+		err = "OSSL_PARAM_BLD_new failed";
+		goto clean_up;
+	}
+	
+	// 设置曲线名称
+	if (!OSSL_PARAM_BLD_push_utf8_string(param_bld, 
+	                                      OSSL_PKEY_PARAM_GROUP_NAME,
+	                                      "SM2", 0)) {
+		err = "Failed to set curve name";
+		goto clean_up;
+	}
+	
+	// 设置公钥（未压缩格式：04 || x || y）
+	unsigned char pub_key_uncompressed[65];
+	pub_key_uncompressed[0] = 0x04;  // 未压缩格式
+	memcpy(pub_key_uncompressed + 1, pub_key_bin, 64);
+	
+	if (!OSSL_PARAM_BLD_push_octet_string(param_bld,
+	                                       OSSL_PKEY_PARAM_PUB_KEY,
+	                                       pub_key_uncompressed,
+	                                       sizeof(pub_key_uncompressed))) {
+		err = "Failed to set public key";
+		goto clean_up;
+	}
+	
+	// 如果有私钥，设置私钥
+	if (pri_key) {
+		if (!OSSL_PARAM_BLD_push_octet_string(param_bld,
+		                                       OSSL_PKEY_PARAM_PRIV_KEY,
+		                                       priv_key_bin,
+		                                       sizeof(priv_key_bin))) {
+			err = "Failed to set private key";
+			goto clean_up;
+		}
+	}
+	
+	params = OSSL_PARAM_BLD_to_param(param_bld);
+	if (!params) {
+		err = "OSSL_PARAM_BLD_to_param failed";
+		goto clean_up;
+	}
+	
+	// 创建 EVP_PKEY_CTX
+	ctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
+	if (!ctx) {
+		err = "EVP_PKEY_CTX_new_from_name failed";
+		goto clean_up;
+	}
+	
+	// 初始化 fromdata 操作
+	if (EVP_PKEY_fromdata_init(ctx) <= 0) {
+		err = "EVP_PKEY_fromdata_init failed";
+		goto clean_up;
+	}
+	
+	// 根据是否有私钥选择密钥类型
+	int selection = pri_key ? EVP_PKEY_KEYPAIR : EVP_PKEY_PUBLIC_KEY;
+	if (EVP_PKEY_fromdata(ctx, &sm2key, selection, params) <= 0) {
+		err = "EVP_PKEY_fromdata failed";
+		goto clean_up;
+	}
+
+	if(!PEM_write_PUBKEY(public_fp, sm2key)) {
+		err = "Error writing public key data in PEM format";
+		goto clean_up;
+	}
+
+	if(pri_key && !PEM_write_PrivateKey(private_fp, sm2key, NULL, NULL, 0, 0, NULL)) {
+		err = "Error writing private key data in PEM format";
+		goto clean_up;
+	}
+
+clean_up:
+	if (private_fp)
+		fclose(private_fp);
+	if (public_fp)
+		fclose(public_fp);
+	if (kp)
+		BN_free(kp);
+	if (kx)
+		BN_free(kx);
+	if (ky)
+		BN_free(ky);
+	if (params)
+		OSSL_PARAM_free(params);
+	if (param_bld)
+		OSSL_PARAM_BLD_free(param_bld);
+	if (ctx)
+		EVP_PKEY_CTX_free(ctx);
+	if (sm2key)
+		EVP_PKEY_free(sm2key);
+
+	if (err) {
+		return luaL_error(L, err);
+	}
+
+	lua_pushboolean(L, 1);
+	return 1;
+}
+#else
 int lsm2key_write(lua_State *L) {
 	const char* err = NULL;
 	const char* pub_key = luaL_checkstring(L, 1);
@@ -801,6 +988,7 @@ clean_up:
 	lua_pushboolean(L, 1);
 	return 1;
 }
+#endif
 
 /*
 // 从公钥生成证书

@@ -43,6 +43,45 @@ static int lrandomkey(lua_State *L) {
 /* -- xor_str -- */
 
 
+/* 获取证书序列号 */
+static int lcert_get_sn(lua_State *L) {
+
+  size_t tsize = 0;
+  const char *text = luaL_checklstring(L, 1, &tsize);
+
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L
+
+  /* 从字符串读取 */
+  BIO *io = NULL; X509 *cert = NULL;
+  io = BIO_new(BIO_s_mem()); BIO_write(io, text, tsize);
+  cert = PEM_read_bio_X509(io, NULL, NULL, NULL); BIO_free(io);
+  if (!cert)
+  {
+    io = BIO_new_file(text, "rb");
+    if (!io)
+      { lua_pushnil(L); lua_pushliteral(L, "[x509 ERROR]: Can't load cert."); return 2; }
+
+    cert = PEM_read_bio_X509(io, NULL, NULL, NULL); BIO_free(io);
+    if (!cert)
+    {
+      char buf[512]; memset(buf, 0, sizeof(buf));
+      ERR_error_string_n(ERR_get_error(), buf, sizeof(buf));
+      lua_pushnil(L); lua_pushfstring(L, "[ssl load_certificate]: %s.", buf);
+      return 2;
+    }
+  }
+
+  BIGNUM *bn = ASN1_INTEGER_to_BN(X509_get0_serialNumber(cert), NULL);
+  io = BIO_new(BIO_s_mem()); BN_print(io, bn);
+  const char *buf; int len = BIO_get_mem_data(io, &buf);
+  lua_pushlstring(L, buf, len); BIO_free(io); BN_free(bn); X509_free(cert);
+  return 1;
+#else
+  return luaL_error(L, "[x509 ERROR]: can't load cert serial Number");
+#endif
+}
+
+
 #define lua_set_key_INT(L, key, value) ({ lua_pushstring((L), (key)); lua_pushinteger((L), (value)); lua_rawset((L), -3); })
 #define lua_set_key_STR(L, key, value) ({ lua_pushstring((L), (key)); lua_pushstring((L), (value)); lua_rawset((L), -3); })
 #define lua_set_key_PTR(L, key, value) ({ lua_pushstring((L), (key)); lua_pushlightuserdata((L), (void*)(value)); lua_rawset((L), -3); })
@@ -51,6 +90,12 @@ static int crypt_set_key_value(lua_State *L) {
   /* OPENSSL VERSION NUMBER */
   lua_set_key_INT(L, "OPENSSL_VERSION_NUMBER", OPENSSL_VERSION_NUMBER);
   lua_set_key_STR(L, "OPENSSL_VERSION_TEXT", OPENSSL_VERSION_TEXT);
+
+  /* 增加aes填充方式常量 */
+  lua_set_key_INT(L, "AES_PADDING_ZERO", EVP_PADDING_ZERO);
+  lua_set_key_INT(L, "AES_PADDING_PKCS7", EVP_PADDING_PKCS7);
+  lua_set_key_INT(L, "AES_PADDING_ISO7816", EVP_PADDING_ISO7816_4);
+  lua_set_key_INT(L, "AES_PADDING_ANSI923", EVP_PADDING_ANSI923);
 
   /* 增加rsa填充方式常量 */
   lua_set_key_INT(L, "RSA_NO_PADDING", RSA_NO_PADDING);
@@ -62,6 +107,33 @@ static int crypt_set_key_value(lua_State *L) {
   lua_set_key_INT(L, "nid_sha1", NID_sha1);
   lua_set_key_INT(L, "nid_sha256", NID_sha256);
   lua_set_key_INT(L, "nid_sha512", NID_sha512);
+
+  lua_set_key_PTR(L, "EVP_aes_128_ecb", EVP_aes_128_ecb());
+  lua_set_key_PTR(L, "EVP_aes_128_cbc", EVP_aes_128_cbc());
+  lua_set_key_PTR(L, "EVP_aes_128_cfb", EVP_aes_128_cfb());
+  lua_set_key_PTR(L, "EVP_aes_128_ofb", EVP_aes_128_ofb());
+  lua_set_key_PTR(L, "EVP_aes_128_ctr", EVP_aes_128_ctr());
+  lua_set_key_PTR(L, "EVP_aes_128_ocb", EVP_aes_128_ocb());
+  lua_set_key_PTR(L, "EVP_aes_128_gcm", EVP_aes_128_gcm());
+  lua_set_key_PTR(L, "EVP_aes_128_ccm", EVP_aes_128_ccm());
+
+  lua_set_key_PTR(L, "EVP_aes_192_ecb", EVP_aes_192_ecb());
+  lua_set_key_PTR(L, "EVP_aes_192_cbc", EVP_aes_192_cbc());
+  lua_set_key_PTR(L, "EVP_aes_192_cfb", EVP_aes_192_cfb());
+  lua_set_key_PTR(L, "EVP_aes_192_ofb", EVP_aes_192_ofb());
+  lua_set_key_PTR(L, "EVP_aes_192_ctr", EVP_aes_192_ctr());
+  lua_set_key_PTR(L, "EVP_aes_192_ocb", EVP_aes_192_ocb());
+  lua_set_key_PTR(L, "EVP_aes_192_gcm", EVP_aes_192_gcm());
+  lua_set_key_PTR(L, "EVP_aes_192_ccm", EVP_aes_192_ccm());
+
+  lua_set_key_PTR(L, "EVP_aes_256_ecb", EVP_aes_256_ecb());
+  lua_set_key_PTR(L, "EVP_aes_256_cbc", EVP_aes_256_cbc());
+  lua_set_key_PTR(L, "EVP_aes_256_cfb", EVP_aes_256_cfb());
+  lua_set_key_PTR(L, "EVP_aes_256_ofb", EVP_aes_256_ofb());
+  lua_set_key_PTR(L, "EVP_aes_256_ctr", EVP_aes_256_ctr());
+  lua_set_key_PTR(L, "EVP_aes_256_ocb", EVP_aes_256_ocb());
+  lua_set_key_PTR(L, "EVP_aes_256_gcm", EVP_aes_256_gcm());
+  lua_set_key_PTR(L, "EVP_aes_256_ccm", EVP_aes_256_ccm());
 
   /* 增加EVP的摘要方法模型  */
   lua_set_key_PTR(L, "EVP_md5", EVP_md5());
@@ -129,19 +201,8 @@ LUAMOD_API int luaopen_lcrypt(lua_State *L) {
     {"rsa_sign", lrsa_sign},
     {"rsa_verify", lrsa_verify},
     // aes 加密
-    { "aes_ecb_encrypt", laes_ecb_encrypt },
-    { "aes_cbc_encrypt", laes_cbc_encrypt },
-    { "aes_cfb_encrypt", laes_cfb_encrypt },
-    { "aes_ofb_encrypt", laes_ofb_encrypt },
-    { "aes_ctr_encrypt", laes_ctr_encrypt },
-    { "aes_gcm_encrypt", laes_gcm_encrypt },
-    // aes 解密
-    { "aes_ecb_decrypt", laes_ecb_decrypt },
-    { "aes_cbc_decrypt", laes_cbc_decrypt },
-    { "aes_cfb_decrypt", laes_cfb_decrypt },
-    { "aes_ofb_decrypt", laes_ofb_decrypt },
-    { "aes_ctr_decrypt", laes_ctr_decrypt },
-    { "aes_gcm_decrypt", laes_gcm_decrypt },
+    { "aes_enc", laes_enc },
+    { "aes_dec", laes_dec },
     { "rc4", lrc4 },
     // DES加密/解密
     { "desencode", ldesencode },
@@ -173,6 +234,8 @@ LUAMOD_API int luaopen_lcrypt(lua_State *L) {
     { "time", ltime },
     { "os", los },
     { "hostname", lhostname },
+    // 证书相关
+    { "get_cert_sn", lcert_get_sn},
     { NULL, NULL },
   };
   luaL_newlib(L, lcrypt);

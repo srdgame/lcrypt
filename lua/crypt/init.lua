@@ -21,8 +21,14 @@ require "crypt.hmac"(crypt)
 -- 循环冗余校验算法
 require "crypt.crc"(crypt)
 
+-- 冗余校验算法
+require "crypt.checksum"(crypt)
+
 -- Base64编码/解码算法
 require "crypt.b64"(crypt)
+
+-- RC4算法
+require "crypt.rc4"(crypt)
 
 -- AES对称加密算法
 require "crypt.aes"(crypt)

@@ -1,297 +1,111 @@
 local CRYPT = require "lcrypt"
+
+local aesenc = CRYPT.aes_enc
+local aesdec = CRYPT.aes_dec
+
 local hexencode = CRYPT.hexencode
 local hexdecode = CRYPT.hexdecode
-local aes_ecb_encrypt = CRYPT.aes_ecb_encrypt
-local aes_ecb_decrypt = CRYPT.aes_ecb_decrypt
 
-local aes_cbc_encrypt = CRYPT.aes_cbc_encrypt
-local aes_cbc_decrypt = CRYPT.aes_cbc_decrypt
+local base64encode = CRYPT.base64encode
+local base64decode = CRYPT.base64decode
 
-local aes_cfb_encrypt = CRYPT.aes_cfb_encrypt
-local aes_cfb_decrypt = CRYPT.aes_cfb_decrypt
-
-local aes_ofb_encrypt = CRYPT.aes_ofb_encrypt
-local aes_ofb_decrypt = CRYPT.aes_ofb_decrypt
-
-local aes_ctr_encrypt = CRYPT.aes_ctr_encrypt
-local aes_ctr_decrypt = CRYPT.aes_ctr_decrypt
-
-local aes_gcm_encrypt = CRYPT.aes_gcm_encrypt
-local aes_gcm_decrypt = CRYPT.aes_gcm_decrypt
-
+---@class CRYPT
+---@field aes_128_ecb_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_192_ecb_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_256_ecb_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_128_cbc_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_192_cbc_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_256_cbc_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_128_cfb_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_192_cfb_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_256_cfb_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_128_ofb_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_192_ofb_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_256_ofb_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_128_ctr_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_192_ctr_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_256_ctr_encrypt  fun(key:string, text:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_128_ecb_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_192_ecb_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_256_ecb_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_128_cbc_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_192_cbc_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_256_cbc_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_128_cfb_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_192_cfb_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_256_cfb_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_128_ofb_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_192_ofb_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_256_ofb_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_128_ctr_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_192_ctr_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_256_ctr_decrypt  fun(key:string, cipher:string, iv:string, hex:boolean|'base64'?, padding:CRYPT.AES.Padding?):string
+---@field aes_128_gcm_encrypt  fun(key:string, text:string, iv:string, aad:string, tag_len:integer?, hex:boolean|'base64'?):string
+---@field aes_192_gcm_encrypt  fun(key:string, text:string, iv:string, aad:string, tag_len:integer?, hex:boolean|'base64'?):string
+---@field aes_256_gcm_encrypt  fun(key:string, text:string, iv:string, aad:string, tag_len:integer?, hex:boolean|'base64'?):string
+---@field aes_128_gcm_decrypt  fun(key:string, cipher:string, iv:string, aad:string, tag_len:integer?, hex:boolean|'base64'?):string
+---@field aes_192_gcm_decrypt  fun(key:string, cipher:string, iv:string, aad:string, tag_len:integer?, hex:boolean|'base64'?):string
+---@field aes_256_gcm_decrypt  fun(key:string, cipher:string, iv:string, aad:string, tag_len:integer?, hex:boolean|'base64'?):string
 local AES = {}
 
--- 高级对称分组解密方法
-function AES.aes_128_cbc_encrypt(key, text, iv, hex)
-  local hash = aes_cbc_encrypt(16, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
+---@enum (key) CRYPT.AES.Padding
+local padding_map = {
+  [0]  = CRYPT.AES_PADDING_ZERO,
+  [7] = CRYPT.AES_PADDING_PKCS7,
+  [923] = CRYPT.AES_PADDING_ANSI923,
+  [7816] = CRYPT.AES_PADDING_ISO7816,
+}
+
+local bits = { 128, 192, 256 }
+
+local list = { "ecb", "cbc", "cfb", "ofb", "ocb", "ctr" }
+
+for _, name in ipairs(list) do
+  for _, bit in ipairs(bits) do
+    local nid = 'EVP_aes_' .. bit .. '_' .. name
+    AES['aes_' .. bit .. '_' ..  name .. '_encrypt'] = function (key, text, iv, hex, padding)
+      local data, errinfo = aesenc(CRYPT[nid], key, text, iv, padding_map[padding or 7])
+      if not data then
+        return nil, errinfo
+      end
+      if hex then
+        data = hex == 'base64' and base64encode(data) or hexencode(data)
+      end
+      return data
+    end
+    AES['aes_' .. bit .. '_' .. name .. '_decrypt'] = function (key, cipher, iv, hex, padding)
+      if hex then
+        cipher = hex == 'base64' and base64decode(cipher) or hexdecode(cipher)
+      end
+      return aesdec(CRYPT[nid], key, cipher, iv, padding_map[padding or 7])
+    end
   end
-  return hash
 end
 
-function AES.aes_128_ecb_encrypt(key, text, iv, hex)
-  local hash = aes_ecb_encrypt(16, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
+local list_ex = { "ccm", "gcm" }
+
+for _, name in ipairs(list_ex) do
+  for _, bit in ipairs(bits) do
+    local nid = 'EVP_aes_' .. bit .. '_' .. name
+    AES['aes_' .. bit .. '_' ..  name .. '_encrypt'] = function (key, text, iv, aad, taglen, hex)
+      local data, errinfo = aesenc(CRYPT[nid], key, text, iv, nil, aad, taglen)
+      if not data then
+        return nil, errinfo
+      end
+      if hex then
+        data = hex == 'base64' and base64encode(data) or hexencode(data)
+      end
+      return data
+    end
+    AES['aes_' .. bit .. '_' .. name .. '_decrypt'] = function (key, cipher, iv, aad, taglen, hex)
+      if hex then
+        cipher = hex == 'base64' and base64decode(cipher) or hexdecode(cipher)
+      end
+      return aesdec(CRYPT[nid], key, cipher, iv, nil, aad, taglen)
+    end
   end
-  return hash
 end
 
-function AES.aes_128_cfb_encrypt(key, text, iv, hex)
-  local hash = aes_cfb_encrypt(16, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_128_ofb_encrypt(key, text, iv, hex)
-  local hash = aes_ofb_encrypt(16, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_128_ctr_encrypt(key, text, iv, hex)
-  local hash = aes_ctr_encrypt(16, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_128_gcm_encrypt(key, text, iv, hex)
-  local hash = aes_gcm_encrypt(16, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_192_cbc_encrypt(key, text, iv, hex)
-  local hash = aes_cbc_encrypt(24, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_192_ecb_encrypt(key, text, iv, hex)
-  local hash = aes_ecb_encrypt(24, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_192_cfb_encrypt(key, text, iv, hex)
-  local hash = aes_cfb_encrypt(24, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_192_ofb_encrypt(key, text, iv, hex)
-  local hash = aes_ofb_encrypt(24, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_192_ctr_encrypt(key, text, iv, hex)
-  local hash = aes_ctr_encrypt(24, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_192_gcm_encrypt(key, text, iv, hex)
-  local hash = aes_gcm_encrypt(24, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_256_cbc_encrypt(key, text, iv, hex)
-  local hash = aes_cbc_encrypt(32, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_256_ecb_encrypt(key, text, iv, hex)
-  local hash = aes_ecb_encrypt(32, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_256_cfb_encrypt(key, text, iv, hex)
-  local hash = aes_cfb_encrypt(32, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_256_ofb_encrypt(key, text, iv, hex)
-  local hash = aes_ofb_encrypt(32, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_256_ctr_encrypt(key, text, iv, hex)
-  local hash = aes_ctr_encrypt(32, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
-function AES.aes_256_gcm_encrypt(key, text, iv, hex)
-  local hash = aes_gcm_encrypt(32, key, text, iv)
-  if hash and hex then
-    return hexencode(hash)
-  end
-  return hash
-end
-
--- 高级对称分组解密方法
-function AES.aes_128_cbc_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_cbc_decrypt(16, key, cipher, iv)
-end
-
-function AES.aes_128_ecb_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_ecb_decrypt(16, key, cipher, iv)
-end
-
-function AES.aes_128_cfb_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_cfb_decrypt(16, key, cipher, iv)
-end
-
-function AES.aes_128_ofb_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_ofb_decrypt(16, key, cipher, iv)
-end
-
-function AES.aes_128_ctr_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_ctr_decrypt(16, key, cipher, iv)
-end
-
-function AES.aes_128_gcm_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_gcm_decrypt(16, key, cipher, iv)
-end
-
-function AES.aes_192_cbc_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_cbc_decrypt(24, key, cipher, iv)
-end
-
-function AES.aes_192_ecb_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_ecb_decrypt(24, key, cipher, iv)
-end
-
-function AES.aes_192_cfb_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_cfb_decrypt(24, key, cipher, iv)
-end
-
-function AES.aes_192_ofb_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_ofb_decrypt(24, key, cipher, iv)
-end
-
-function AES.aes_192_ctr_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_ctr_decrypt(24, key, cipher, iv)
-end
-
-function AES.aes_192_gcm_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_gcm_decrypt(24, key, cipher, iv)
-end
-
-function AES.aes_256_cbc_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_cbc_decrypt(32, key, cipher, iv)
-end
-
-function AES.aes_256_ecb_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_ecb_decrypt(32, key, cipher, iv)
-end
-
-function AES.aes_256_cfb_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_cfb_decrypt(32, key, cipher, iv)
-end
-
-function AES.aes_256_ofb_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_ofb_decrypt(32, key, cipher, iv)
-end
-
-function AES.aes_256_ctr_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_ctr_decrypt(32, key, cipher, iv)
-end
-
-function AES.aes_256_gcm_decrypt(key, cipher, iv, hex)
-  if hex then
-    cipher = hexdecode(cipher)
-  end
-  return aes_gcm_decrypt(32, key, cipher, iv)
-end
 -- 初始化函数
 return function (t)
   for k, v in pairs(AES) do
